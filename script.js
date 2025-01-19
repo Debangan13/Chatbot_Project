@@ -4,10 +4,11 @@ const messagesList = document.querySelector('.messages');
 const userInput = document.getElementById('userInput');
 
 const botResponses = {
-  'hello': 'Hi there!',
+  'hello': 'Hi there!,How can i help you',
   'how are you': 'I am doing well, thank you!',
   'what is your name': 'I am a simple chatbot.',
   'bye': 'Goodbye!',
+  "i need help":"Sure! How can I assist you today?",
   'thank you': "You're welcome!",
   'what time is it': () => {
     const now = new Date();
