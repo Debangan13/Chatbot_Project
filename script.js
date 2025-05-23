@@ -3,120 +3,168 @@ const chatWindow = document.querySelector('.chat-window');
 const messagesList = document.querySelector('.messages');
 const userInput = document.getElementById('userInput');
 
-const botResponses = {
-  'hello': 'Hi there!,How can i help you',
-  'how are you': 'I am doing well, thank you!',
-  'what is your name': 'I am a simple chatbot.',
-  'bye': 'Goodbye!',
-  "i need help":"Sure! How can I assist you today?",
-  'thank you': "You're welcome!",
-  'what time is it': () => {
-    const now = new Date();
-    return `The current time is ${now.toLocaleTimeString()}`;
+let lastIntent = null; // Context memory
+
+const botResponses = [
+  {
+    intent: "greeting",
+    keywords: ["hello", "hi", "hey", "good morning", "good evening"],
+    response: "Hi there! How can I assist you with astrology today?"
+  },
+  {
+    intent: "recommendation",
+    keywords: ["recommend", "suggest", "give me", "any advice"],
+    response: 'Sure! You can check out our <a href="/astrology-services">astrology services</a> for personalized insights.'
+  },
+  {
+    intent: "astrology_reading",
+    keywords: ["zodiac", "horoscope", "birth chart", "astrology reading", "i want a reading"],
+    response: () => {
+      lastIntent = "reading_type_prompt";
+      return "What type of reading are you interested in? Natal, love, or career?";
+    }
+  },
+  {
+    intent: "daily_horoscope",
+    keywords: ["today's horoscope", "daily horoscope", "horoscope for today"],
+    response: 'Check your daily horoscope on our <a href="/daily-horoscope">Daily Horoscope</a> page!'
+  },
+  {
+    intent: "zodiac_signs",
+    keywords: [
+      "aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra",
+      "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
+    ],
+    response: 'We have detailed profiles for each zodiac sign <a href="/zodiac-signs">here</a>.'
+  },
+  {
+    intent: "birth_chart",
+    keywords: ["birth chart", "natal chart", "kundli", "janam kundli"],
+    response: 'Want to generate your birth chart? Head over to our <a href="/birth-chart">Birth Chart Generator</a>!'
+  },
+  {
+    intent: "personal_help",
+    keywords: ["need help", "can you help", "assist me", "i need help"],
+    response: "Of course! What would you like to know about astrology?"
+  },
+  {
+    intent: "thanks",
+    keywords: ["thank you", "thanks", "appreciate it"],
+    response: "You're welcome! 🌟"
+  },
+  {
+    intent: "goodbye",
+    keywords: ["bye", "see you", "goodbye"],
+    response: "Goodbye! Hope the stars guide you well ✨"
+  },
+  {
+    intent: "time",
+    keywords: ["what time is it", "current time"],
+    response: () => {
+      const now = new Date();
+      return `The current time is ${now.toLocaleTimeString()}`;
+    }
   }
-};
+];
 
 function toggleChat() {
   chatWindow.style.display = chatWindow.style.display === 'none' ? 'block' : 'none';
 }
 
-function getBotResponse(userMessage) {
-  const lowerCaseMessage = userMessage.toLowerCase();
-  for (const [key, response] of Object.entries(botResponses)) {
-    if (lowerCaseMessage.includes(key)) {
+function getBotResponse(message) {
+  const lowerMsg = message.toLowerCase();
+
+  // Check context-based follow-ups
+  if (lastIntent === "reading_type_prompt") {
+    if (lowerMsg.includes("natal")) {
+      lastIntent = null;
+      return 'Great! Get your natal reading here: <a href="/natal-reading">Natal Reading</a>';
+    } else if (lowerMsg.includes("love")) {
+      lastIntent = null;
+      return 'Wonderful! Discover love compatibility <a href="/love-reading">here</a>.';
+    } else if (lowerMsg.includes("career")) {
+      lastIntent = null;
+      return 'Explore your career astrology reading <a href="/career-reading">here</a>.';
+    } else {
+      return "Please choose one: Natal, Love, or Career.";
+    }
+  }
+
+  // Regular intent matching
+  for (const { intent, keywords, response } of botResponses) {
+    if (keywords.some(keyword => lowerMsg.includes(keyword))) {
+      lastIntent = intent;
       return typeof response === 'function' ? response() : response;
     }
   }
-  return "I don't understand.";
+
+  // Fallback
+  if (lowerMsg.includes("product")) {
+    return 'You can view our products <a href="/products">here</a>.';
+  }
+
+  return "I'm not sure I understand. Could you rephrase or ask about your zodiac or horoscope?";
 }
 
 function showTypingIndicator() {
-  const typingIndicator = document.createElement('li');
-  typingIndicator.textContent = 'Bot is typing...';
-  typingIndicator.classList.add('message', 'bot-message', 'typing-indicator');
-  messagesList.appendChild(typingIndicator);
-  return typingIndicator;
+  const li = document.createElement('li');
+  li.textContent = 'Bot is typing...';
+  li.className = 'message bot-message typing-indicator';
+  messagesList.appendChild(li);
+  return li;
 }
 
-function hideTypingIndicator(typingIndicator) {
-  messagesList.removeChild(typingIndicator);
+function hideTypingIndicator(indicator) {
+  messagesList.removeChild(indicator);
 }
 
 function saveMessage(text, type) {
-  const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
-  storedMessages.push({ text, type });
-  localStorage.setItem('chatMessages', JSON.stringify(storedMessages));
+  const messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+  messages.push({ text, type });
+  localStorage.setItem('chatMessages', JSON.stringify(messages));
 }
 
 function loadMessages() {
-  const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
-  storedMessages.forEach(({ text, type }) => {
-    const messageElement = document.createElement('li');
-    messageElement.classList.add('message', type === 'user' ? 'user-message' : 'bot-message');
-
-    const messageText = document.createElement('span');
-    messageText.classList.add('message-text');
-    messageText.textContent = text;
-
-    messageElement.appendChild(messageText);
-    messagesList.appendChild(messageElement);
+  const messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+  messages.forEach(({ text, type }) => {
+    addMessage(text, type);
   });
+  messagesList.scrollTop = messagesList.scrollHeight;
+}
+
+function addMessage(text, type) {
+  const li = document.createElement('li');
+  li.className = `message ${type}-message`;
+
+  const span = document.createElement('span');
+  span.className = 'message-text';
+  span.innerHTML = text;
+
+  li.appendChild(span);
+  messagesList.appendChild(li);
+  messagesList.scrollTop = messagesList.scrollHeight;
 }
 
 function sendMessage() {
-  const userMessage = userInput.value;
+  const userMessage = userInput.value.trim();
+  if (userMessage === '') return;
 
-  if (userMessage.trim() === '') {
-    const errorMessage = document.createElement('li');
-    errorMessage.classList.add('message', 'bot-message');
-
-    const errorMessageText = document.createElement('span');
-    errorMessageText.classList.add('message-text');
-    errorMessageText.textContent = 'Please enter a message.';
-
-    errorMessage.appendChild(errorMessageText);
-    messagesList.appendChild(errorMessage);
-    return;
-  }
-
+  addMessage(userMessage, 'user');
   saveMessage(userMessage, 'user');
-
-  // Display user message
-  const userMessageElement = document.createElement('li');
-  userMessageElement.classList.add('message', 'user-message');
-
-  const userMessageText = document.createElement('span');
-  userMessageText.classList.add('message-text');
-  userMessageText.textContent = userMessage;
-
-  userMessageElement.appendChild(userMessageText);
-  messagesList.appendChild(userMessageElement);
-
   userInput.value = '';
 
-  // Show typing indicator
   const typingIndicator = showTypingIndicator();
 
-  // Simulate bot response delay
   setTimeout(() => {
     hideTypingIndicator(typingIndicator);
-
     const botMessage = getBotResponse(userMessage);
+    addMessage(botMessage, 'bot');
     saveMessage(botMessage, 'bot');
-
-    const botMessageElement = document.createElement('li');
-    botMessageElement.classList.add('message', 'bot-message');
-
-    const botMessageText = document.createElement('span');
-    botMessageText.classList.add('message-text');
-    botMessageText.textContent = botMessage;
-
-    botMessageElement.appendChild(botMessageText);
-    messagesList.appendChild(botMessageElement);
-
-    messagesList.scrollTop = messagesList.scrollHeight;
   }, 1000);
 }
 
-// Load messages on page load
+function handleEnter(event) {
+  if (event.key === 'Enter') sendMessage();
+}
+
 window.onload = loadMessages;
